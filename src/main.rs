@@ -4,6 +4,7 @@ use clap::Parser;
 use serde_json::{Value, json};
 use std::{env, process};
 use pocagentskills::tooling::tools::{ToolsManager};
+use pocagentskills::utils::system_prompts::get_system_prompt;
 
 #[derive(Parser)]
 #[command(author, version, about)]
@@ -29,24 +30,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         process::exit(1);
     });
 
+    let model_name = env::var("OPENROUTER_MODEL").unwrap_or_else(|_| {
+        eprintln!("OPENROUTER_MODEL is not set");
+        process::exit(1);
+    });
+
     let config = OpenAIConfig::new()
         .with_api_base(base_url)
         .with_api_key(api_key);
 
     let client = Client::with_config(config);
     let mut messages: Vec<serde_json::Value> = vec![];
+    let system_prompt = get_system_prompt();
+    messages.push(json!({
+        "role": "system",
+        "content": system_prompt
+    }));
+
     messages.push(json!({
         "role": "user",
         "content": args.prompt
     }));
-
+    print!("-------------------SYS PROMPT: {}-------------------\n\n\n", system_prompt);
     loop {
         #[allow(unused_variables)]
         let response: Value = client
             .chat()
             .create_byot(json!({
                 "messages": messages,
-                "model": "anthropic/claude-haiku-4.5",
+                "model": model_name,
                 "tools": tools_specifications
             }))
             .await?;
