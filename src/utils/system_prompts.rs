@@ -1,16 +1,16 @@
-use std::{env::current_dir, path::PathBuf};
 use serde::Deserialize;
+use std::{env::current_dir, path::PathBuf};
 
-    #[derive(Debug, Deserialize)]
-    struct SkillDef {
-        name: String,
-        description: String,
-        #[serde(rename = "last-updated")]
-        last_updated: Option<String>,
-        #[serde(rename = "allowed-tools")]
-        allowed_tools: Option<String>,
-        compatibility: Option<String>,
-    }
+#[derive(Debug, Deserialize)]
+struct SkillDef {
+    name: String,
+    description: String,
+    #[serde(rename = "last-updated")]
+    last_updated: Option<String>,
+    #[serde(rename = "allowed-tools")]
+    allowed_tools: Option<String>,
+    compatibility: Option<String>,
+}
 
 fn get_skills_directory_path() -> String {
     let cwd = current_dir().expect("Couldnt get CWD");
@@ -25,11 +25,10 @@ fn parse_skill_file(content: String) -> Option<SkillDef> {
     let yaml = serde_yaml::from_str(yaml_part);
 
     return yaml.ok();
-
 }
 fn get_skills_definitions() -> Result<Vec<SkillDef>, std::io::Error> {
     let skills_path = get_skills_directory_path();
-    
+
     let skills_files = std::fs::read_dir(skills_path)
         .expect(".skills directory not found")
         .filter_map(|entry| {
@@ -37,20 +36,21 @@ fn get_skills_definitions() -> Result<Vec<SkillDef>, std::io::Error> {
             if entry.file_type().ok()?.is_dir() {
                 let mut final_path = entry.path().clone();
                 final_path.push("SKILL.md");
-                Some(final_path) 
+                Some(final_path)
             } else {
                 None
             }
         });
 
     let skills_files_content = skills_files.map(|path| std::fs::read_to_string(path));
-    
-    let skills = skills_files_content.map(|content| {
-        let c = content?;
-        parse_skill_file(c)
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Parse Error"))
-    })
-    .collect::<Result<Vec<SkillDef>, std::io::Error>>()?;
+
+    let skills = skills_files_content
+        .map(|content| {
+            let c = content?;
+            parse_skill_file(c)
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidData, "Parse Error"))
+        })
+        .collect::<Result<Vec<SkillDef>, std::io::Error>>()?;
     Ok(skills)
 }
 
@@ -63,12 +63,12 @@ pub fn get_system_prompt() -> String {
         acc.push_str(&format!("{} - {}", skill.name, skill.description));
 
         return acc;
-    });  
+    });
     let SYSTEM_PROMPT = format!(
         "The following skills are available for you to choose from using the ReadSkill tool:
-        {}", skills_str);
+        {}",
+        skills_str
+    );
 
     return SYSTEM_PROMPT;
-    
-
 }

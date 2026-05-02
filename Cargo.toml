@@ -13,3 +13,4 @@ clap = { version = "4.3.14", features = ["derive"] }                 # CLI argum
 serde_json = "1.0.149"                                                # JSON serialization/deserialization
 serde = "1.0.228"
 serde_yaml = "0.9.34"
+ratatui = { version = "0.30.0", features = ["all-widgets"] }

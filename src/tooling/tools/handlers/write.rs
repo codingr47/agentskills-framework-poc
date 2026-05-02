@@ -10,12 +10,21 @@ pub fn write_handler(args: ToolHandlerArgument) -> BoxFuture<'static, serde_json
                     .map(|content| {
                         let result = std::fs::write(file_path, content);
                         match result {
-                            Ok(_) => serde_json::Value::String(format!("Successfully wrote to file: {}", file_path)),
-                            Err(e) => serde_json::Value::String(format!("Error writing to file: {}", e)),
+                            Ok(_) => serde_json::Value::String(format!(
+                                "Successfully wrote to file: {}",
+                                file_path
+                            )),
+                            Err(e) => {
+                                serde_json::Value::String(format!("Error writing to file: {}", e))
+                            }
                         }
                     })
-                    .unwrap_or_else(|| serde_json::Value::String("Missing 'content' argument".to_string()))
+                    .unwrap_or_else(|| {
+                        serde_json::Value::String("Missing 'content' argument".to_string())
+                    })
             })
-            .unwrap_or_else(|| serde_json::Value::String("Missing 'file_path' argument".to_string()))
+            .unwrap_or_else(|| {
+                serde_json::Value::String("Missing 'file_path' argument".to_string())
+            })
     })
-}   
+}

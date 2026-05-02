@@ -1,5 +1,8 @@
-use crate::{tool_specification};
-use crate::tooling::spec::{ FunctionParametersObject, FunctionParametersObjectPropertiesObject, FunctionParametersObjectPropertyObject};
+use crate::tool_specification;
+use crate::tooling::spec::{
+    FunctionParametersObject, FunctionParametersObjectPropertiesObject,
+    FunctionParametersObjectPropertyObject,
+};
 
 tool_specification!(
     ReadSkill,
@@ -15,7 +18,9 @@ tool_specification!(
                 },
                 crate::tooling::spec::FunctionParametersObjectPropertyObject {
                     name: "reference_path".to_string(),
-                    description: "Optional reference path within the skill to read for incremental reading".to_string(),
+                    description:
+                        "Optional reference path within the skill to read for incremental reading"
+                            .to_string(),
                     r#type: "string".to_string(),
                 }
             ],

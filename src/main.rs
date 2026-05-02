@@ -1,23 +1,15 @@
 use dotenv::{dotenv};
 use async_openai::{Client, config::OpenAIConfig};
-use clap::Parser;
 use serde_json::{Value, json};
 use std::{env, process};
 use pocagentskills::tooling::tools::{ToolsManager};
 use pocagentskills::utils::system_prompts::get_system_prompt;
+use pocagentskills::ui::chat::run_chat_ui;
 
-#[derive(Parser)]
-#[command(author, version, about)]
-struct Args {
-    #[arg(short = 'p', long)]
-    prompt: String,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    let args = Args::parse();
-    
 
     let tools_manager = ToolsManager::new();
     let tools_specifications = tools_manager.json();
@@ -42,15 +34,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client = Client::with_config(config);
     let mut messages: Vec<serde_json::Value> = vec![];
     let system_prompt = get_system_prompt();
+    run_chat_ui()?;
     messages.push(json!({
         "role": "system",
         "content": system_prompt
     }));
 
-    messages.push(json!({
-        "role": "user",
-        "content": args.prompt
-    }));
+    // messages.push(json!({
+    //     "role": "user",
+    //     "content": args.prompt
+    // }));
     print!("-------------------SYS PROMPT: {}-------------------\n\n\n", system_prompt);
     loop {
         #[allow(unused_variables)]

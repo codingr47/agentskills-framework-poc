@@ -7,7 +7,7 @@ pub fn read_skill_handler(args: ToolHandlerArgument) -> BoxFuture<'static, serde
             .and_then(|v| v.as_str())
             .map(|file_path| {
                 let cwd = current_dir().expect("Couldnt get CWD");
-                let cwd_path = cwd.to_str().expect("Path is invalid");    
+                let cwd_path = cwd.to_str().expect("Path is invalid");
                 let reference_path = args.get("reference_path");
 
                 let mut path_to_skill = PathBuf::from(cwd_path);
@@ -25,6 +25,8 @@ pub fn read_skill_handler(args: ToolHandlerArgument) -> BoxFuture<'static, serde
                     Err(e) => serde_json::Value::String(format!("Error reading file: {}", e)),
                 }
             })
-            .unwrap_or_else(|| serde_json::Value::String("Missing 'skill_name' argument".to_string()))
+            .unwrap_or_else(|| {
+                serde_json::Value::String("Missing 'skill_name' argument".to_string())
+            })
     })
 }

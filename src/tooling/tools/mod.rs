@@ -1,12 +1,15 @@
 use std::collections::HashMap;
 
-use crate::tooling::{spec::{LLMTool, LLMToolHandler, ToolHandlerArgument}, tools::{read::Read, write::Write}};
+use crate::tooling::{
+    spec::{LLMTool, LLMToolHandler, ToolHandlerArgument},
+    tools::{read::Read, write::Write},
+};
 
-pub mod read;
-pub mod write;
-pub mod handlers;
 pub mod bash;
+pub mod handlers;
+pub mod read;
 pub mod read_skill;
+pub mod write;
 
 fn boxed<F, Fut>(f: F) -> LLMToolHandler
 where
@@ -18,24 +21,28 @@ where
 
 pub struct ToolsManager {
     pub tools: Vec<Box<dyn LLMTool>>,
-    handlers: HashMap<String, LLMToolHandler>
+    handlers: HashMap<String, LLMToolHandler>,
 }
 
 impl ToolsManager {
     pub fn new() -> Self {
         let mut instance = Self {
-            tools: vec![ Box::new(Read::new()), 
-                         Box::new(Write::new()),
-                         Box::new(bash::Bash::new()),
-                         Box::new(read_skill::ReadSkill::new())
+            tools: vec![
+                Box::new(Read::new()),
+                Box::new(Write::new()),
+                Box::new(bash::Bash::new()),
+                Box::new(read_skill::ReadSkill::new()),
             ],
-            handlers: HashMap::new()
+            handlers: HashMap::new(),
         };
 
         instance.register_handler("Read".to_string(), boxed(handlers::read::read_handler));
         instance.register_handler("Write".to_string(), boxed(handlers::write::write_handler));
         instance.register_handler("Bash".to_string(), boxed(handlers::command::bash));
-        instance.register_handler("ReadSkill".to_string(), boxed(handlers::read_skill::read_skill_handler));
+        instance.register_handler(
+            "ReadSkill".to_string(),
+            boxed(handlers::read_skill::read_skill_handler),
+        );
 
         instance
     }
@@ -44,7 +51,11 @@ impl ToolsManager {
         self.tools.iter().map(|t| t.json()).collect()
     }
 
-    pub async fn execute(&self, tool_name: String, arguments: ToolHandlerArgument) -> Option<serde_json::Value> {
+    pub async fn execute(
+        &self,
+        tool_name: String,
+        arguments: ToolHandlerArgument,
+    ) -> Option<serde_json::Value> {
         if let Some(handler) = self.handlers.get(tool_name.as_str()) {
             Some(handler(arguments).await)
         } else {

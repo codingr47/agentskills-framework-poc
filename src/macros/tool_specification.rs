@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! tool_specification {
     ($name:ident, $description:expr, $arguments:expr) => {
