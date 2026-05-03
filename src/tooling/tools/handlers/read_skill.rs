@@ -14,7 +14,6 @@ pub fn read_skill_handler(args: ToolHandlerArgument) -> BoxFuture<'static, serde
                 path_to_skill.push(".skills");
                 path_to_skill.push(file_path);
                 if let Some(reference) = reference_path {
-                    path_to_skill.push("references");
                     path_to_skill.push(reference.to_string());
                 } else {
                     path_to_skill.push("SKILL.md");
