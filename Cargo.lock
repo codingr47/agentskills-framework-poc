@@ -1534,6 +1534,7 @@ dependencies = [
  "async-openai",
  "clap",
  "dotenv",
+ "futures-util",
  "ratatui",
  "serde",
  "serde_json",

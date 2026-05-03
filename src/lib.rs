@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod tooling;
 pub mod ui;
 pub mod utils;

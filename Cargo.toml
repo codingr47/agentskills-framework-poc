@@ -14,3 +14,4 @@ serde_json = "1.0.149"                                                # JSON ser
 serde = "1.0.228"
 serde_yaml = "0.9.34"
 ratatui = { version = "0.30.0", features = ["all-widgets"] }
+futures-util = "0.3"
