@@ -147,18 +147,56 @@ async fn execute_tool_calls(
         let arguments_value = tool_call.arguments_value();
         let tool_stream =
             chat_message_handler.tool(tool_call.name.clone(), arguments_value.clone());
-        tool_stream.end();
+
+        if !approve_tool_call(chat_message_handler, tool_call, &arguments_value) {
+            tool_stream.stream(" [x]".to_string());
+            tool_stream.end();
+            messages.push(json!({
+                 "role": "tool",
+                 "tool_call_id": tool_call.id,
+                 "content": "Tool execution denied by user"
+            }));
+            continue;
+        }
 
         if let Some(output_value) = tools_manager
             .execute(tool_call.name.clone(), tool_call.arguments_object())
             .await
         {
+            tool_stream.stream(" [ok]".to_string());
+            tool_stream.end();
             messages.push(json!({
                  "role": "tool",
                  "tool_call_id": tool_call.id,
-                 "content": output_value
+                 "content": tool_output_content(output_value)
+            }));
+        } else {
+            tool_stream.stream(" [x]".to_string());
+            tool_stream.end();
+            messages.push(json!({
+                 "role": "tool",
+                 "tool_call_id": tool_call.id,
+                 "content": "Tool execution failed: no matching tool handler"
             }));
         }
+    }
+}
+
+fn approve_tool_call(
+    chat_message_handler: &ChatMessageHandler,
+    tool_call: &PendingToolCall,
+    arguments_value: &Value,
+) -> bool {
+    chat_message_handler.request_approval(format!(
+        "Execute tool `{}` with arguments {}?",
+        tool_call.name, arguments_value
+    ))
+}
+
+fn tool_output_content(output_value: Value) -> String {
+    match output_value {
+        Value::String(output) => output,
+        other => other.to_string(),
     }
 }
 

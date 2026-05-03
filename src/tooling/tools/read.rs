@@ -1,7 +1,5 @@
 use crate::tool_specification;
-use crate::tooling::spec::{
-    FunctionParametersObject
-};
+use crate::tooling::spec::FunctionParametersObject;
 
 tool_specification!(
     Read,

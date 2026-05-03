@@ -15,10 +15,10 @@ use ratatui::{
         },
         execute,
     },
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 
 pub type ChatResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
@@ -40,9 +40,21 @@ pub struct ChatMessageReceiver {
 }
 
 enum ChatMessageEvent {
-    Start { id: u64, content: String },
-    Stream { id: u64, content: String },
-    End { id: u64 },
+    Start {
+        id: u64,
+        content: String,
+    },
+    Stream {
+        id: u64,
+        content: String,
+    },
+    End {
+        id: u64,
+    },
+    ApprovalPrompt {
+        prompt: String,
+        response_sender: Sender<bool>,
+    },
 }
 
 pub fn chat_message_handler() -> (ChatMessageHandler, ChatMessageReceiver) {
@@ -72,6 +84,16 @@ impl ChatMessageHandler {
             tool_name.into(),
             arguments
         ))
+    }
+
+    pub fn request_approval(&self, prompt: impl Into<String>) -> bool {
+        let (response_sender, response_receiver) = mpsc::channel();
+        let _ = self.sender.send(ChatMessageEvent::ApprovalPrompt {
+            prompt: prompt.into(),
+            response_sender,
+        });
+
+        response_receiver.recv().unwrap_or(false)
     }
 
     fn start_stream(&self, content: String) -> ChatMessageStream {
@@ -113,6 +135,7 @@ where
     let mut follow_chat_output = true;
     let mut max_chat_scroll = 0;
     let mut visible_chat_rows = 1;
+    let mut approval_prompt: Option<ApprovalPrompt> = None;
 
     execute!(stdout(), EnableMouseCapture)?;
 
@@ -131,6 +154,15 @@ where
                     }
                     ChatMessageEvent::End { id } => {
                         active_streams.remove(&id);
+                    }
+                    ChatMessageEvent::ApprovalPrompt {
+                        prompt,
+                        response_sender,
+                    } => {
+                        approval_prompt = Some(ApprovalPrompt {
+                            prompt,
+                            response_sender,
+                        });
                     }
                 }
             }
@@ -185,6 +217,23 @@ where
                 frame.render_widget(header, header_area);
                 frame.render_widget(chat, chat_area);
                 frame.render_widget(input_panel, input_area);
+
+                if let Some(approval_prompt) = &approval_prompt {
+                    let approval_area = centered_rect(area, 70, 7);
+                    let approval = Paragraph::new(format!(
+                        "{}\n\nPress Y to approve or N to deny.",
+                        approval_prompt.prompt
+                    ))
+                    .block(
+                        Block::default()
+                            .title("Tool Approval")
+                            .borders(Borders::ALL),
+                    );
+
+                    frame.render_widget(Clear, approval_area);
+                    frame.render_widget(approval, approval_area);
+                }
+
                 frame.set_cursor_position((
                     input_area.x + cursor_column + 1,
                     input_area.y + cursor_visible_row + 1,
@@ -198,6 +247,22 @@ where
             match event::read()? {
                 Event::Key(key) => {
                     if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
+
+                    if let Some(prompt) = approval_prompt.take() {
+                        match key.code {
+                            KeyCode::Char('y') | KeyCode::Char('Y') => {
+                                let _ = prompt.response_sender.send(true);
+                            }
+                            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc => {
+                                let _ = prompt.response_sender.send(false);
+                            }
+                            _ => {
+                                approval_prompt = Some(prompt);
+                            }
+                        }
+
                         continue;
                     }
 
@@ -250,6 +315,11 @@ where
     result
 }
 
+struct ApprovalPrompt {
+    prompt: String,
+    response_sender: Sender<bool>,
+}
+
 fn wrap_input(input: &str, width: u16) -> String {
     let width = width.max(1) as usize;
     let mut wrapped = String::new();
@@ -263,6 +333,26 @@ fn wrap_input(input: &str, width: u16) -> String {
     }
 
     wrapped
+}
+
+fn centered_rect(area: Rect, width_percent: u16, height: u16) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(0),
+            Constraint::Length(height.min(area.height)),
+            Constraint::Min(0),
+        ])
+        .split(area);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - width_percent) / 2),
+            Constraint::Percentage(width_percent),
+            Constraint::Percentage((100 - width_percent) / 2),
+        ])
+        .split(popup_layout[1])[1]
 }
 
 fn wrap_chat_messages(messages: &[String], width: u16) -> String {
