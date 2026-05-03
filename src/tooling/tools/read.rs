@@ -1,7 +1,6 @@
 use crate::tool_specification;
 use crate::tooling::spec::{
-    FunctionParametersObject, FunctionParametersObjectPropertiesObject,
-    FunctionParametersObjectPropertyObject,
+    FunctionParametersObject
 };
 
 tool_specification!(

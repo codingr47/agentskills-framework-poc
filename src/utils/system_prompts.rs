@@ -64,7 +64,7 @@ pub fn get_system_prompt() -> String {
 
         return acc;
     });
-    let SYSTEM_PROMPT = format!(
+    let system_prompt = format!(
         "The following skills are available for you to choose from using the ReadSkill tool:
         {}
         
@@ -75,5 +75,5 @@ pub fn get_system_prompt() -> String {
         skills_str
     );
 
-    return SYSTEM_PROMPT;
+    return system_prompt;
 }
