@@ -66,7 +66,12 @@ pub fn get_system_prompt() -> String {
     });
     let SYSTEM_PROMPT = format!(
         "The following skills are available for you to choose from using the ReadSkill tool:
-        {}",
+        {}
+        
+        IMPORTANT: When asking to read references in the context of a skill, use the ReadSkill tool with both arguments ! DO NOT attempt to read reference directly using Read tool
+        Example: When wanting to read this reference [deploying.md](references/deploying.md) in the firebase-hosting-basics skill
+        call the ReadSkill tool with the following arguments {{ \"skill_name\": \"firebase-hosting-basics\" \"reference_path\": \"references/deploying.md\" }}
+        ",
         skills_str
     );
 

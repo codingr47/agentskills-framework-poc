@@ -1,17 +1,24 @@
 use std::{
     collections::HashMap,
     error::Error,
+    io::stdout,
     sync::atomic::{AtomicU64, Ordering},
     sync::mpsc::{self, Receiver, Sender},
     time::Duration,
 };
 
 use ratatui::{
-    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
+    crossterm::{
+        event::{
+            self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind,
+            KeyModifiers, MouseEventKind,
+        },
+        execute,
+    },
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     text::Line,
-    widgets::{Block, Borders, Paragraph, Wrap},
+    widgets::{Block, Borders, Paragraph},
 };
 
 pub type ChatResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
@@ -102,8 +109,14 @@ where
     let mut input = String::new();
     let mut chat_messages: Vec<String> = Vec::new();
     let mut active_streams: HashMap<u64, usize> = HashMap::new();
+    let mut chat_scroll = 0;
+    let mut follow_chat_output = true;
+    let mut max_chat_scroll = 0;
+    let mut visible_chat_rows = 1;
 
-    ratatui::run(|terminal| -> ChatResult<()> {
+    execute!(stdout(), EnableMouseCapture)?;
+
+    let result = ratatui::run(|terminal| -> ChatResult<()> {
         loop {
             while let Ok(event) = incoming_messages.receiver.try_recv() {
                 match event {
@@ -139,14 +152,25 @@ where
                     ])
                     .areas(area);
 
+                let chat_width = chat_area.width.saturating_sub(2).max(1);
+                visible_chat_rows = chat_area.height.saturating_sub(2).max(1);
+                let chat_text = wrap_chat_messages(&chat_messages, chat_width);
+                let chat_rows = chat_text.lines().count().max(1) as u16;
+                max_chat_scroll = chat_rows.saturating_sub(visible_chat_rows);
+
+                if follow_chat_output {
+                    chat_scroll = max_chat_scroll;
+                } else {
+                    chat_scroll = chat_scroll.min(max_chat_scroll);
+                }
+
                 let header = Paragraph::new(Line::from("Welcome to the agentskills chat"))
                     .style(Style::default().fg(Color::Blue))
                     .block(Block::default().borders(Borders::ALL));
 
-                let chat_text = chat_messages.join("\n");
                 let chat = Paragraph::new(chat_text)
                     .block(Block::default().title("Chat").borders(Borders::ALL))
-                    .wrap(Wrap { trim: false });
+                    .scroll((chat_scroll, 0));
 
                 let visible_input_rows = input_area.height.saturating_sub(2).max(1);
                 let cursor_row = input.chars().count() as u16 / input_width;
@@ -171,28 +195,59 @@ where
                 continue;
             }
 
-            if let Event::Key(key) = event::read()? {
-                if key.kind != KeyEventKind::Press {
-                    continue;
-                }
+            match event::read()? {
+                Event::Key(key) => {
+                    if key.kind != KeyEventKind::Press {
+                        continue;
+                    }
 
-                match (key.code, key.modifiers) {
-                    (KeyCode::Char('x'), KeyModifiers::CONTROL) => break Ok(()),
-                    (KeyCode::Enter, _) => {
-                        let submitted_message = std::mem::take(&mut input);
-                        on_enter(submitted_message);
+                    match (key.code, key.modifiers) {
+                        (KeyCode::Char('x'), KeyModifiers::CONTROL) => break Ok(()),
+                        (KeyCode::PageUp, _) => {
+                            chat_scroll = chat_scroll.saturating_sub(visible_chat_rows);
+                            follow_chat_output = false;
+                        }
+                        (KeyCode::PageDown, _) => {
+                            chat_scroll = chat_scroll
+                                .saturating_add(visible_chat_rows)
+                                .min(max_chat_scroll);
+                            follow_chat_output = chat_scroll == max_chat_scroll;
+                        }
+                        (KeyCode::End, _) => {
+                            follow_chat_output = true;
+                        }
+                        (KeyCode::Enter, _) => {
+                            let submitted_message = std::mem::take(&mut input);
+                            on_enter(submitted_message);
+                            follow_chat_output = true;
+                        }
+                        (KeyCode::Backspace, _) => {
+                            input.pop();
+                        }
+                        (KeyCode::Char(character), _) => {
+                            input.push(character);
+                        }
+                        _ => {}
                     }
-                    (KeyCode::Backspace, _) => {
-                        input.pop();
+                }
+                Event::Mouse(mouse) => match mouse.kind {
+                    MouseEventKind::ScrollUp => {
+                        chat_scroll = chat_scroll.saturating_sub(3);
+                        follow_chat_output = false;
                     }
-                    (KeyCode::Char(character), _) => {
-                        input.push(character);
+                    MouseEventKind::ScrollDown => {
+                        chat_scroll = chat_scroll.saturating_add(3).min(max_chat_scroll);
+                        follow_chat_output = chat_scroll == max_chat_scroll;
                     }
                     _ => {}
-                }
+                },
+                _ => {}
             }
         }
-    })
+    });
+
+    execute!(stdout(), DisableMouseCapture)?;
+    result
 }
 
 fn wrap_input(input: &str, width: u16) -> String {
@@ -205,6 +260,38 @@ fn wrap_input(input: &str, width: u16) -> String {
         }
 
         wrapped.push(character);
+    }
+
+    wrapped
+}
+
+fn wrap_chat_messages(messages: &[String], width: u16) -> String {
+    messages
+        .iter()
+        .map(|message| wrap_text(message, width))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn wrap_text(text: &str, width: u16) -> String {
+    let width = width.max(1) as usize;
+    let mut wrapped = String::new();
+    let mut column = 0;
+
+    for character in text.chars() {
+        if character == '\n' {
+            wrapped.push(character);
+            column = 0;
+            continue;
+        }
+
+        if column >= width {
+            wrapped.push('\n');
+            column = 0;
+        }
+
+        wrapped.push(character);
+        column += 1;
     }
 
     wrapped
