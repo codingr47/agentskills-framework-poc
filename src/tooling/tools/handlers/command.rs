@@ -14,12 +14,22 @@ pub fn bash(args: ToolHandlerArgument) -> BoxFuture<'static, serde_json::Value> 
                     cmd.arg(arg);
                 }
 
-                let output = cmd
+                let output = match cmd
                     .stdin(Stdio::null())
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .output()
-                    .expect("Failed to execute command");
+                {
+                    Ok(output) => output,
+                    Err(error) => {
+                        return serde_json::json!({
+                            "success": false,
+                            "exit_code": null,
+                            "stdout": "",
+                            "stderr": error.to_string(),
+                        });
+                    }
+                };
 
                 serde_json::json!({
                     "success": output.status.success(),
